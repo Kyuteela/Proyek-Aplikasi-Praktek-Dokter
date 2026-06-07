@@ -3,6 +3,8 @@
 USE praktik_dokter;
 
 -- TAHAP 2A - CRUD
+-- CRUD PASIEN
+
 INSERT INTO pasien (
 nik,
 nama,
@@ -27,16 +29,17 @@ VALUES (
 );
 
 SELECT *
-FROM pasien;
+FROM pasien
+WHERE nik = '3501010000000011';
 
 UPDATE pasien
 SET alamat = 'Kota Batu'
-WHERE patient_id = 1;
+WHERE nik = '3501010000000011';
 
 DELETE FROM pasien
-WHERE patient_id = 11;
+WHERE nik = '3501010000000011';
 
-
+-- CRUD DOKTER
 
 INSERT INTO dokter
 (nama,sip_no,spesialisasi,jadwal_id)
@@ -44,16 +47,17 @@ VALUES
 ('Dr. Test','SIP999','Umum',99);
 
 SELECT *
-FROM dokter;
+FROM dokter
+WHERE sip_no = 'SIP999';
 
 UPDATE dokter
 SET spesialisasi = 'Penyakit Dalam'
-WHERE doctor_id = 1;
+WHERE sip_no = 'SIP999';
 
 DELETE FROM dokter
-WHERE doctor_id = 11;
+WHERE sip_no = 'SIP999';
 
-
+-- CRUD OBAT
 
 INSERT INTO obat
 (nama_obat,bentuk_sediaan,satuan,kategori)
@@ -61,16 +65,17 @@ VALUES
 ('Vitamin D','Tablet','Botol','Vitamin');
 
 SELECT *
-FROM obat;
+FROM obat
+WHERE nama_obat = 'Vitamin D';
 
 UPDATE obat
 SET kategori='Suplemen'
-WHERE obat_id=1;
+WHERE nama_obat='Vitamin D';
 
 DELETE FROM obat
-WHERE obat_id=21;
+WHERE nama_obat='Vitamin D';
 
-
+-- CRUD KUNJUNGAN
 
 INSERT INTO kunjungan (
 patient_id,
@@ -86,22 +91,23 @@ VALUES (
 1,
 CURDATE(),
 'Rawat Jalan',
-1,
+99,
 NOW(),
 'Menunggu'
 );
 
 SELECT *
-FROM kunjungan;
+FROM kunjungan
+WHERE antrian_no = 99;
 
 UPDATE kunjungan
 SET status='Selesai'
-WHERE visit_id=1;
+WHERE antrian_no = 99;
 
 DELETE FROM kunjungan
-WHERE visit_id=1;
+WHERE antrian_no = 99;
 
-
+-- CRUD SUPPLIER
 
 INSERT INTO supplier (
 nama_supplier,
@@ -115,14 +121,16 @@ VALUES (
 );
 
 SELECT *
-FROM supplier;
+FROM supplier
+WHERE nama_supplier = 'PT Sehat Sentosa';
 
 UPDATE supplier
 SET alamat = 'Malang'
-WHERE supplier_id = 1;
+WHERE nama_supplier = 'PT Sehat Sentosa';
 
 DELETE FROM supplier
-WHERE supplier_id = 11;
+WHERE nama_supplier = 'PT Sehat Sentosa';
+
 
 
 
