@@ -5,8 +5,11 @@ Proyek Akhir Pemrograman SQL
 Kasus: Sistem Informasi Praktik Dokter Mandiri
 
 ## Anggota
-- Derryl
-- Nama Teman
+- Abner Benedict Javier Siahaan
+- Aldeba Azka Kusmanto
+- Derryl Smith Frans
+- Mohamad Ardiatama Hibrizi
+- Muhammad Ushaimm Mukmin Kasim
 
 ## Struktur Proyek
 
