@@ -160,6 +160,10 @@ $total_obat = mysqli_fetch_assoc(
         <li><a href="modules/visits/index.php">Kelola Kunjungan</a></li>
         <li><a href="modules/medical-records/index.php">Kelola Rekam Medis</a></li>
         <li><a href="modules/prescriptions/index.php">Kelola Resep</a></li>
+        <li><a href="modules/dispensing/index.php">Kelola Dispensing</a></li>
+        <li><a href="modules/locations/index.php">Kelola Lokasi Penyimpanan</a></li>
+        <li><a href="modules/batches/index.php">Kelola Batch Obat</a></li>
+        <li><a href="modules/stock-transactions/index.php">Kelola Transaksi Stok</a></li>
         <li><a href="modules/billing/index.php">Kelola Tagihan</a></li>
         <li><a href="modules/users/index.php">Kelola User</a></li>
         <li><a href="modules/reports/index.php">Reports</a></li>
@@ -175,6 +179,10 @@ $total_obat = mysqli_fetch_assoc(
 
         <li><a href="modules/medicines/index.php">Kelola Obat</a></li>
         <li><a href="modules/prescriptions/index.php">Kelola Resep</a></li>
+        <li><a href="modules/dispensing/index.php">Kelola Dispensing</a></li>
+        <li><a href="modules/locations/index.php">Kelola Lokasi Penyimpanan</a></li>
+        <li><a href="modules/batches/index.php">Kelola Batch Obat</a></li>
+        <li><a href="modules/stock-transactions/index.php">Kelola Transaksi Stok</a></li>
 
     <?php elseif($_SESSION['id_role'] == 4) : ?>
 
