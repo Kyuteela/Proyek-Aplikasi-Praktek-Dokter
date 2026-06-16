@@ -1,14 +1,16 @@
 <?php
+session_start();
+if (!isset($_SESSION['user_id'])) {
+    header("Location: ../../login.php");
+    exit;
+}
+require_once __DIR__ . '/../../config/koneksi.php';
 
-require_once '../../config/koneksi.php';
+$detail_id = mysqli_real_escape_string($conn, $_GET['id']);
+$resep_id = mysqli_real_escape_string($conn, $_GET['resep_id']);
 
-$id = $_GET['id'];
-$resep_id = $_GET['resep_id'];
-
-mysqli_query(
-    $conn,
-    "DELETE FROM detail_resep WHERE detail_id = $id"
-);
-
-header("Location:details.php?resep_id=$resep_id");
-exit;
+// Melakukan penghapusan baris item racikan detail resep
+if (mysqli_query($conn, "DELETE FROM detail_resep WHERE detail_id = '$detail_id'")) {
+    header("Location: details.php?id=" . $resep_id);
+    exit;
+}

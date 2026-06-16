@@ -1,174 +1,108 @@
 <?php
-
-require_once '../../config/koneksi.php';
-
-$detail_id_param = isset($_GET['detail_id']) ? $_GET['detail_id'] : '';
-
-$detail_resep = mysqli_query($conn,"
-SELECT
-    dr.detail_id,
-    dr.resep_id,
-    dr.obat_id,
-    o.nama_obat,
-    dr.dosis,
-    dr.jumlah,
-    dr.frekuensi,
-    p.nama AS pasien,
-    doc.nama AS dokter,
-    r.tanggal_resep,
-    r.status_resep
-FROM detail_resep dr
-JOIN obat o
-    ON dr.obat_id = o.obat_id
-JOIN resep r
-    ON dr.resep_id = r.resep_id
-JOIN rekam_medis rm
-    ON r.record_id = rm.record_id
-JOIN kunjungan k
-    ON rm.visit_id = k.visit_id
-JOIN pasien p
-    ON k.patient_id = p.patient_id
-JOIN dokter doc
-    ON r.doctor_id = doc.doctor_id
-WHERE dr.detail_id NOT IN (
-    SELECT detail_id FROM dispensing
-)
-ORDER BY dr.detail_id ASC
-");
-
-$petugas = mysqli_query($conn,"
-SELECT user_id, nama
-FROM user
-ORDER BY nama ASC
-");
-
-if(isset($_POST['simpan'])){
-
-    mysqli_query($conn,"
-    INSERT INTO dispensing
-    (
-        detail_id,
-        obat_id,
-        edukasi_pasien,
-        serah_terima,
-        petugas_id
-    )
-    VALUES
-    (
-        '$_POST[detail_id]',
-        '$_POST[obat_id]',
-        '$_POST[edukasi_pasien]',
-        '$_POST[serah_terima]',
-        '$_POST[petugas_id]'
-    )
-    ");
-
-    header("Location:index.php");
+session_start();
+if (!isset($_SESSION['user_id'])) {
+    header("Location: ../../login.php");
     exit;
 }
 
-?>
+require_once __DIR__ . '/../../config/koneksi.php';
+$error = '';
 
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Tambah Dispensing</title>
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-        rel="stylesheet">
-</head>
-<body>
+// Mengambil item detail resep yang posisinya belum pernah di-dispense
+$query_pending = "SELECT dr.detail_id, o.nama_obat, dr.jumlah, p.nama AS nama_pasien 
+                  FROM detail_resep dr
+                  INNER JOIN obat o ON dr.obat_id = o.obat_id
+                  INNER JOIN resep r ON dr.resep_id = r.resep_id
+                  INNER JOIN rekam_medis rm ON r.record_id = rm.record_id
+                  INNER JOIN kunjungan k ON rm.visit_id = k.visit_id
+                  INNER JOIN pasien p ON k.patient_id = p.patient_id
+                  LEFT JOIN dispensing d ON dr.detail_id = d.detail_id
+                  WHERE d.dispensing_id IS NULL ORDER BY dr.detail_id DESC";
+$pending_items = mysqli_query($conn, $query_pending);
 
-<div class="container mt-4">
+// Ambil list user dengan peran Apoteker (Role ID 3) atau Admin (Role ID 1)
+$petugas_list = mysqli_query($conn, "SELECT user_id, nama FROM user WHERE id_role IN (1, 3) ORDER BY nama ASC");
 
-    <h1 class="mb-4">Tambah Dispensing</h1>
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $detail_id = mysqli_real_escape_string($conn, $_POST['detail_id']);
+    $edukasi_pasien = mysqli_real_escape_string($conn, $_POST['edukasi_pasien']);
+    $serah_terima = mysqli_real_escape_string($conn, $_POST['serah_terima']);
+    $petugas_id = mysqli_real_escape_string($conn, $_POST['petugas_id']);
 
-    <form method="POST" class="col-md-8">
+    // Menarik parameter obat_id asli dari baris acuan detail_resep
+    $get_obat = mysqli_fetch_assoc(mysqli_query($conn, "SELECT obat_id FROM detail_resep WHERE detail_id = '$detail_id'"));
 
-        <div class="mb-3">
-            <label class="form-label">Detail Resep</label>
-            <select name="detail_id" id="detail_id" class="form-select" required>
+    if ($get_obat) {
+        $obat_id = $get_obat['obat_id'];
 
-                <option value="">-- Pilih Detail Resep --</option>
+        $query_insert = "INSERT INTO dispensing (detail_id, obat_id, edukasi_pasien, serah_terima, petugas_id) 
+                         VALUES ('$detail_id', '$obat_id', '$edukasi_pasien', '$serah_terima', '$petugas_id')";
 
-                <?php while($dr = mysqli_fetch_assoc($detail_resep)) : ?>
-
-                <option
-                    value="<?= $dr['detail_id'] ?>"
-                    data-obat-id="<?= $dr['obat_id'] ?>"
-                    data-info="Resep #<?= $dr['resep_id'] ?> | <?= $dr['pasien'] ?> | <?= $dr['dokter'] ?> | <?= $dr['nama_obat'] ?> (<?= $dr['jumlah'] ?>)"
-                    <?= ($detail_id_param == $dr['detail_id']) ? 'selected' : '' ?>
-                >
-                    Detail #<?= $dr['detail_id'] ?> -
-                    Resep #<?= $dr['resep_id'] ?> -
-                    <?= $dr['pasien'] ?> -
-                    <?= $dr['nama_obat'] ?>
-                </option>
-
-                <?php endwhile; ?>
-
-            </select>
-        </div>
-
-        <div class="alert alert-info" id="resep-info">
-            Pilih detail resep untuk melihat informasi resep terkait.
-        </div>
-
-        <input type="hidden" name="obat_id" id="obat_id" value="">
-
-        <div class="mb-3">
-            <label class="form-label">Edukasi Pasien</label>
-            <textarea name="edukasi_pasien" class="form-control" rows="3"></textarea>
-        </div>
-
-        <div class="mb-3">
-            <label class="form-label">Serah Terima</label>
-            <input type="text" name="serah_terima" class="form-control" placeholder="Contoh: Sudah diterima pasien">
-        </div>
-
-        <div class="mb-3">
-            <label class="form-label">Petugas</label>
-            <select name="petugas_id" class="form-select">
-                <option value="">-- Pilih Petugas --</option>
-
-                <?php while($p = mysqli_fetch_assoc($petugas)) : ?>
-
-                <option value="<?= $p['user_id'] ?>">
-                    <?= $p['nama'] ?>
-                </option>
-
-                <?php endwhile; ?>
-
-            </select>
-        </div>
-
-        <button type="submit" name="simpan" class="btn btn-primary">Simpan</button>
-        <a href="index.php" class="btn btn-secondary">Kembali</a>
-
-    </form>
-
-</div>
-
-<script>
-const detailSelect = document.getElementById('detail_id');
-const obatInput = document.getElementById('obat_id');
-const resepInfo = document.getElementById('resep-info');
-
-function updateDetailInfo() {
-    const option = detailSelect.options[detailSelect.selectedIndex];
-
-    if (option.value) {
-        obatInput.value = option.dataset.obatId;
-        resepInfo.textContent = option.dataset.info;
+        if (mysqli_query($conn, $query_insert)) {
+            header("Location: index.php?status=success&msg=" . urlencode("Penyerahan obat berhasil diproses!"));
+            exit;
+        } else {
+            $error = "Gagal memproses penyerahan dispensing obat.";
+        }
     } else {
-        obatInput.value = '';
-        resepInfo.textContent = 'Pilih detail resep untuk melihat informasi resep terkait.';
+        $error = "Item resep obat tidak valid.";
     }
 }
 
-detailSelect.addEventListener('change', updateDetailInfo);
-updateDetailInfo();
-</script>
+include __DIR__ . '/../../includes/header.php';
+include __DIR__ . '/../../includes/sidebar.php';
+?>
 
-</body>
-</html>
+<div class="max-w-xl mx-auto bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+    <div class="p-5 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+        <h2 class="text-lg font-bold text-gray-800 flex items-center">
+            <i class="bi bi-box-seam-fill text-blue-500 mr-2"></i> Form Dispensing Obat
+        </h2>
+        <a href="index.php" class="text-xs text-gray-500 hover:text-gray-700"><i class="bi bi-arrow-left"></i> Kembali</a>
+    </div>
+
+    <?php if (!empty($error)) : ?>
+        <div class="m-4 bg-rose-50 border-l-4 border-rose-500 text-rose-800 p-4 rounded-xl text-sm flex items-center space-x-2">
+            <i class="bi bi-exclamation-octagon-fill text-rose-500"></i>
+            <span><?= $error; ?></span>
+        </div>
+    <?php endif; ?>
+
+    <form action="" method="POST" class="p-6 space-y-4">
+        <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Pilih Item Resep Pasien <span class="text-rose-500">*</span></label>
+            <select name="detail_id" required class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                <option value="">-- Pilih Antrian Obat Pasien --</option>
+                <?php while ($item = mysqli_fetch_assoc($pending_items)): ?>
+                    <option value="<?= $item['detail_id'] ?>">Pasien: <?= htmlspecialchars($item['nama_pasien']) ?> | <?= htmlspecialchars($item['nama_obat']) ?> (<?= $item['jumlah'] ?> Pcs)</option>
+                <?php endwhile; ?>
+            </select>
+        </div>
+
+        <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Pilih Petugas Pelaksana <span class="text-rose-500">*</span></label>
+            <select name="petugas_id" required class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none text-sm">
+                <option value="">-- Pilih Apoteker --</option>
+                <?php while ($p = mysqli_fetch_assoc($petugas_list)): ?>
+                    <option value="<?= $p['user_id'] ?>" <?= $_SESSION['user_id'] == $p['user_id'] ? 'selected' : '' ?>><?= htmlspecialchars($p['nama']) ?></option>
+                <?php endwhile; ?>
+            </select>
+        </div>
+
+        <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Status Keterangan Serah Terima</label>
+            <input type="text" name="serah_terima" required class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none text-sm" value="Sudah diterima pasien/keluarga">
+        </div>
+
+        <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Catatan Instruksi Edukasi Obat</label>
+            <textarea name="edukasi_pasien" rows="3" required class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none text-sm" placeholder="Contoh: Diminum 3x sehari sesudah makan, obat antibiotik wajib dihabiskan..."></textarea>
+        </div>
+
+        <div class="pt-4 border-t border-gray-100 flex justify-end">
+            <button type="submit" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition shadow">Konfirmasi Penyerahan</button>
+        </div>
+    </form>
+</div>
+
+<?php include __DIR__ . '/../../includes/footer.php'; ?>

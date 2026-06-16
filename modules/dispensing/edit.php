@@ -1,164 +1,93 @@
 <?php
-
-require_once '../../config/koneksi.php';
-
-$id = $_GET['id'];
-
-$data = mysqli_fetch_assoc(
-    mysqli_query(
-        $conn,
-        "SELECT * FROM dispensing WHERE dispensing_id = $id"
-    )
-);
-
-$detail_resep = mysqli_query($conn,"
-SELECT
-    dr.detail_id,
-    dr.resep_id,
-    dr.obat_id,
-    o.nama_obat,
-    dr.jumlah,
-    p.nama AS pasien,
-    doc.nama AS dokter,
-    r.tanggal_resep
-FROM detail_resep dr
-JOIN obat o
-    ON dr.obat_id = o.obat_id
-JOIN resep r
-    ON dr.resep_id = r.resep_id
-JOIN rekam_medis rm
-    ON r.record_id = rm.record_id
-JOIN kunjungan k
-    ON rm.visit_id = k.visit_id
-JOIN pasien p
-    ON k.patient_id = p.patient_id
-JOIN dokter doc
-    ON r.doctor_id = doc.doctor_id
-ORDER BY dr.detail_id ASC
-");
-
-$obat = mysqli_query($conn,"SELECT * FROM obat ORDER BY nama_obat ASC");
-
-$petugas = mysqli_query($conn,"
-SELECT user_id, nama
-FROM user
-ORDER BY nama ASC
-");
-
-if(isset($_POST['update'])){
-
-    mysqli_query($conn,"
-    UPDATE dispensing
-    SET
-        detail_id='$_POST[detail_id]',
-        obat_id='$_POST[obat_id]',
-        edukasi_pasien='$_POST[edukasi_pasien]',
-        serah_terima='$_POST[serah_terima]',
-        petugas_id='$_POST[petugas_id]'
-    WHERE dispensing_id=$id
-    ");
-
-    header("Location:index.php");
+session_start();
+if (!isset($_SESSION['user_id'])) {
+    header("Location: ../../login.php");
     exit;
 }
 
+require_once __DIR__ . '/../../config/koneksi.php';
+if (!isset($_GET['id'])) {
+    header("Location: index.php");
+    exit;
+}
+
+$dispensing_id = mysqli_real_escape_string($conn, $_GET['id']);
+$dispensing = mysqli_fetch_assoc(mysqli_query($conn, "SELECT d.*, o.nama_obat, p.nama AS nama_pasien 
+      FROM dispensing d 
+      INNER JOIN detail_resep dr ON d.detail_id = dr.detail_id
+      INNER JOIN resep r ON dr.resep_id = r.resep_id
+      INNER JOIN rekam_medis rm ON r.record_id = rm.record_id
+      INNER JOIN kunjungan k ON rm.visit_id = k.visit_id
+      INNER JOIN pasien p ON k.patient_id = p.patient_id
+      INNER JOIN obat o ON d.obat_id = o.obat_id 
+      WHERE d.dispensing_id = '$dispensing_id'"));
+
+if (!$dispensing) {
+    header("Location: index.php");
+    exit;
+}
+
+$petugas_list = mysqli_query($conn, "SELECT user_id, nama FROM user WHERE id_role IN (1, 3) ORDER BY nama ASC");
+$error = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $edukasi_pasien = mysqli_real_escape_string($conn, $_POST['edukasi_pasien']);
+    $serah_terima = mysqli_real_escape_string($conn, $_POST['serah_terima']);
+    $petugas_id = mysqli_real_escape_string($conn, $_POST['petugas_id']);
+
+    $update_query = "UPDATE dispensing SET 
+                        edukasi_pasien = '$edukasi_pasien', 
+                        serah_terima = '$serah_terima', 
+                        petugas_id = '$petugas_id' 
+                     WHERE dispensing_id = '$dispensing_id'";
+
+    if (mysqli_query($conn, $update_query)) {
+        header("Location: index.php?status=success&msg=" . urlencode("Log catatan dispensing berhasil diperbarui!"));
+        exit;
+    } else {
+        $error = "Gagal memperbarui catatan log dispensing.";
+    }
+}
+
+include __DIR__ . '/../../includes/header.php';
+include __DIR__ . '/../../includes/sidebar.php';
 ?>
 
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Edit Dispensing</title>
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-        rel="stylesheet">
-</head>
-<body>
+<div class="max-w-xl mx-auto bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+    <div class="p-5 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+        <h2 class="text-lg font-bold text-gray-800"><i class="bi bi-pencil-shadow text-emerald-500 mr-2"></i> Koreksi Catatan Dispensing</h2>
+        <a href="index.php" class="text-xs text-gray-500">Batal</a>
+    </div>
 
-<div class="container mt-4">
+    <form action="" method="POST" class="p-6 space-y-4">
+        <div class="p-4 bg-slate-50 border rounded-xl text-sm space-y-1 text-gray-600">
+            <div>Nama Pasien: <strong class="text-gray-800"><?= htmlspecialchars($dispensing['nama_pasien']) ?></strong></div>
+            <div>Komoditas Obat: <strong class="text-blue-600"><?= htmlspecialchars($dispensing['nama_obat']) ?></strong></div>
+        </div>
 
-    <h1 class="mb-4">Edit Dispensing</h1>
-
-    <form method="POST" class="col-md-8">
-
-        <div class="mb-3">
-            <label class="form-label">Detail Resep</label>
-            <select name="detail_id" class="form-select" required>
-
-                <?php while($dr = mysqli_fetch_assoc($detail_resep)) : ?>
-
-                <option
-                    value="<?= $dr['detail_id'] ?>"
-                    <?= ($dr['detail_id'] == $data['detail_id']) ? 'selected' : '' ?>
-                >
-                    Detail #<?= $dr['detail_id'] ?> -
-                    Resep #<?= $dr['resep_id'] ?> -
-                    <?= $dr['pasien'] ?> -
-                    <?= $dr['nama_obat'] ?>
-                </option>
-
+        <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Otoritas Petugas</label>
+            <select name="petugas_id" required class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none">
+                <?php while ($p = mysqli_fetch_assoc($petugas_list)): ?>
+                    <option value="<?= $p['user_id'] ?>" <?= $dispensing['petugas_id'] == $p['user_id'] ? 'selected' : '' ?>><?= htmlspecialchars($p['nama']) ?></option>
                 <?php endwhile; ?>
-
             </select>
         </div>
 
-        <div class="mb-3">
-            <label class="form-label">Obat</label>
-            <select name="obat_id" class="form-select" required>
-
-                <?php while($o = mysqli_fetch_assoc($obat)) : ?>
-
-                <option
-                    value="<?= $o['obat_id'] ?>"
-                    <?= ($o['obat_id'] == $data['obat_id']) ? 'selected' : '' ?>
-                >
-                    <?= $o['nama_obat'] ?>
-                </option>
-
-                <?php endwhile; ?>
-
-            </select>
+        <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Status Serah Terima</label>
+            <input type="text" name="serah_terima" required value="<?= htmlspecialchars($dispensing['serah_terima']) ?>" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none">
         </div>
 
-        <div class="mb-3">
-            <label class="form-label">Edukasi Pasien</label>
-            <textarea name="edukasi_pasien" class="form-control" rows="3"><?= $data['edukasi_pasien'] ?></textarea>
+        <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Edukasi Informasi Pemakaian</label>
+            <textarea name="edukasi_pasien" rows="3" required class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none"><?= htmlspecialchars($dispensing['edukasi_pasien']) ?></textarea>
         </div>
 
-        <div class="mb-3">
-            <label class="form-label">Serah Terima</label>
-            <input
-                type="text"
-                name="serah_terima"
-                class="form-control"
-                value="<?= $data['serah_terima'] ?>"
-            >
+        <div class="pt-4 border-t border-gray-100 flex justify-end">
+            <button type="submit" class="w-full px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition shadow">Simpan Perubahan Log</button>
         </div>
-
-        <div class="mb-3">
-            <label class="form-label">Petugas</label>
-            <select name="petugas_id" class="form-select">
-                <option value="">-- Pilih Petugas --</option>
-
-                <?php while($p = mysqli_fetch_assoc($petugas)) : ?>
-
-                <option
-                    value="<?= $p['user_id'] ?>"
-                    <?= ($p['user_id'] == $data['petugas_id']) ? 'selected' : '' ?>
-                >
-                    <?= $p['nama'] ?>
-                </option>
-
-                <?php endwhile; ?>
-
-            </select>
-        </div>
-
-        <button type="submit" name="update" class="btn btn-primary">Update</button>
-        <a href="index.php" class="btn btn-secondary">Kembali</a>
-
     </form>
-
 </div>
 
-</body>
-</html>
+<?php include __DIR__ . '/../../includes/footer.php'; ?>

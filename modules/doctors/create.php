@@ -1,66 +1,60 @@
 <?php
-
-require_once '../../config/koneksi.php';
-
-if(isset($_POST['simpan'])){
-
-    mysqli_query($conn,"
-        INSERT INTO dokter
-        (
-            nama,
-            sip_no,
-            spesialisasi,
-            jadwal_id
-        )
-        VALUES
-        (
-            '$_POST[nama]',
-            '$_POST[sip_no]',
-            '$_POST[spesialisasi]',
-            '$_POST[jadwal_id]'
-        )
-    ");
-
-    header("Location:index.php");
+session_start();
+if (!isset($_SESSION['user_id'])) {
+    header("Location: ../../login.php");
     exit;
 }
 
+require_once __DIR__ . '/../../config/koneksi.php';
+$error = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $nama = mysqli_real_escape_string($conn, $_POST['nama']);
+    $sip_no = mysqli_real_escape_string($conn, $_POST['sip_no']);
+    $spesialisasi = mysqli_real_escape_string($conn, $_POST['spesialisasi']);
+
+    $query = "INSERT INTO dokter (nama, sip_no, spesialisasi) VALUES ('$nama', '$sip_no', '$spesialisasi')";
+
+    if (mysqli_query($conn, $query)) {
+        header("Location: index.php?status=success&msg=" . urlencode("Data dokter baru berhasil didaftarkan!"));
+        exit;
+    } else {
+        $error = "Gagal menyimpan data dokter ke sistem.";
+    }
+}
+
+include __DIR__ . '/../../includes/header.php';
+include __DIR__ . '/../../includes/sidebar.php';
 ?>
 
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Tambah Dokter</title>
-</head>
-<body>
+<div class="max-w-xl mx-auto bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+    <div class="p-5 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+        <h2 class="text-lg font-bold text-gray-800 flex items-center">
+            <i class="bi bi-person-plus-fill text-blue-500 mr-2"></i> Tambah Dokter Baru
+        </h2>
+        <a href="index.php" class="text-xs text-gray-500 hover:text-gray-700 flex items-center"><i class="bi bi-arrow-left mr-1"></i> Kembali</a>
+    </div>
 
-<h1>Tambah Dokter</h1>
+    <form action="" method="POST" class="p-6 space-y-4">
+        <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Nama Lengkap Dokter <span class="text-rose-500">*</span></label>
+            <input type="text" name="nama" required class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="Contoh: Dr. Andi Pratama">
+        </div>
 
-<form method="POST">
+        <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Nomor SIP (Surat Izin Praktik) <span class="text-rose-500">*</span></label>
+            <input type="text" name="sip_no" required class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="Contoh: SIP001">
+        </div>
 
-    <p>Nama Dokter</p>
-    <input type="text" name="nama" required>
+        <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Spesialisasi Klinis <span class="text-rose-500">*</span></label>
+            <input type="text" name="spesialisasi" required class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="Contoh: Umum, Anak, Mata, Bedah">
+        </div>
 
-    <p>No SIP</p>
-    <input type="text" name="sip_no" required>
+        <div class="pt-4 border-t border-gray-100 flex justify-end">
+            <button type="submit" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition shadow">Simpan Dokter</button>
+        </div>
+    </form>
+</div>
 
-    <p>Spesialisasi</p>
-    <input type="text" name="spesialisasi">
-
-    <p>Jadwal ID</p>
-    <input type="number" name="jadwal_id">
-
-    <br><br>
-
-    <button type="submit" name="simpan">
-        Simpan
-    </button>
-
-</form>
-
-<br>
-
-<a href="index.php">Kembali</a>
-
-</body>
-</html>
+<?php include __DIR__ . '/../../includes/footer.php'; ?>

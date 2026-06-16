@@ -1,81 +1,77 @@
 <?php
-
-require_once '../../config/koneksi.php';
-
-$id = $_GET['id'];
-
-$data = mysqli_fetch_assoc(
-    mysqli_query(
-        $conn,
-        "SELECT * FROM lokasi WHERE lokasi_id = $id"
-    )
-);
-
-if(isset($_POST['update'])){
-
-    mysqli_query($conn,"
-    UPDATE lokasi
-    SET
-        nama_lokasi='$_POST[nama_lokasi]',
-        tipe_lokasi='$_POST[tipe_lokasi]',
-        deskripsi='$_POST[deskripsi]'
-    WHERE lokasi_id=$id
-    ");
-
-    header("Location:index.php");
+session_start();
+if (!isset($_SESSION['user_id'])) {
+    header("Location: ../../login.php");
     exit;
 }
 
+require_once __DIR__ . '/../../config/koneksi.php';
+if (!isset($_GET['id'])) {
+    header("Location: index.php");
+    exit;
+}
+
+$lokasi_id = mysqli_real_escape_string($conn, $_GET['id']);
+$query_fetch = "SELECT * FROM lokasi WHERE lokasi_id = '$lokasi_id'";
+$result_fetch = mysqli_query($conn, $query_fetch);
+
+if (mysqli_num_rows($result_fetch) === 0) {
+    header("Location: index.php");
+    exit;
+}
+
+$location = mysqli_fetch_assoc($result_fetch);
+$error = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $nama_lokasi = mysqli_real_escape_string($conn, $_POST['nama_lokasi']);
+    $tipe_lokasi = mysqli_real_escape_string($conn, $_POST['tipe_lokasi']);
+    $deskripsi = mysqli_real_escape_string($conn, $_POST['deskripsi']);
+
+    $update_query = "UPDATE lokasi SET nama_lokasi = '$nama_lokasi', tipe_lokasi = '$tipe_lokasi', deskripsi = '$deskripsi' WHERE lokasi_id = '$lokasi_id'";
+
+    if (mysqli_query($conn, $update_query)) {
+        header("Location: index.php?status=success&msg=" . urlencode("Informasi parameter lokasi sukses diperbarui!"));
+        exit;
+    } else {
+        $error = "Gagal memperbarui konfigurasi data lokasi.";
+    }
+}
+
+include __DIR__ . '/../../includes/header.php';
+include __DIR__ . '/../../includes/sidebar.php';
 ?>
 
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Edit Lokasi Penyimpanan</title>
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-        rel="stylesheet">
-</head>
-<body>
+<div class="max-w-xl mx-auto bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+    <div class="p-5 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+        <h2 class="text-lg font-bold text-gray-800"><i class="bi bi-pencil-square text-emerald-500 mr-2"></i> Edit Parameter Komponen Lokasi</h2>
+        <a href="index.php" class="text-xs text-gray-500">Batal</a>
+    </div>
 
-<div class="container mt-4">
-
-    <h1 class="mb-4">Edit Lokasi Penyimpanan</h1>
-
-    <form method="POST" class="col-md-8">
-
-        <div class="mb-3">
-            <label class="form-label">Nama Lokasi</label>
-            <input
-                type="text"
-                name="nama_lokasi"
-                class="form-control"
-                value="<?= $data['nama_lokasi'] ?>"
-                required
-            >
+    <form action="" method="POST" class="p-6 space-y-4">
+        <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Nama Unit Lokasi / Ruangan <span class="text-rose-500">*</span></label>
+            <input type="text" name="nama_lokasi" required value="<?= htmlspecialchars($location['nama_lokasi']) ?>" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none text-sm">
         </div>
 
-        <div class="mb-3">
-            <label class="form-label">Tipe Lokasi</label>
-            <input
-                type="text"
-                name="tipe_lokasi"
-                class="form-control"
-                value="<?= $data['tipe_lokasi'] ?>"
-            >
+        <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Tipe Klasifikasi Kategori <span class="text-rose-500">*</span></label>
+            <select name="tipe_lokasi" required class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none text-sm">
+                <option value="Ruangan" <?= $location['tipe_lokasi'] === 'Ruangan' ? 'selected' : '' ?>>Ruangan (Unit Operasional Medis)</option>
+                <option value="Gudang" <?= $location['tipe_lokasi'] === 'Gudang' ? 'selected' : '' ?>>Gudang (Penyimpanan Logistik Makro)</option>
+                <option value="Rak" <?= $location['tipe_lokasi'] === 'Rak' ? 'selected' : '' ?>>Rak (Sekat Inventori Obat Mikro)</option>
+            </select>
         </div>
 
-        <div class="mb-3">
-            <label class="form-label">Deskripsi</label>
-            <textarea name="deskripsi" class="form-control" rows="3"><?= $data['deskripsi'] ?></textarea>
+        <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Catatan Keterangan Tambahan</label>
+            <textarea name="deskripsi" rows="3" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none text-sm"><?= htmlspecialchars($location['deskripsi']) ?></textarea>
         </div>
 
-        <button type="submit" name="update" class="btn btn-primary">Update</button>
-        <a href="index.php" class="btn btn-secondary">Kembali</a>
-
+        <div class="pt-4 border-t border-gray-100 flex justify-end">
+            <button type="submit" class="w-full px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition shadow">Simpan Perubahan Data</button>
+        </div>
     </form>
-
 </div>
 
-</body>
-</html>
+<?php include __DIR__ . '/../../includes/footer.php'; ?>

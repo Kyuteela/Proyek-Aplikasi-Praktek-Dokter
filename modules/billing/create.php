@@ -1,100 +1,83 @@
 <?php
-
-require_once '../../config/koneksi.php';
-
-$kunjungan = mysqli_query($conn,"
-SELECT
-    k.visit_id,
-    p.nama,
-    d.nama AS dokter
-FROM kunjungan k
-JOIN pasien p
-    ON k.patient_id = p.patient_id
-JOIN dokter d
-    ON k.doctor_id = d.doctor_id
-");
-
-if(isset($_POST['simpan'])){
-
-    mysqli_query($conn,"
-    INSERT INTO tagihan
-    (
-        visit_id,
-        tanggal_tagihan,
-        total_tagihan,
-        diskon,
-        metode_pembayaran,
-        asuransi_id,
-        status
-    )
-    VALUES
-    (
-        '$_POST[visit_id]',
-        '$_POST[tanggal_tagihan]',
-        '$_POST[total_tagihan]',
-        '$_POST[diskon]',
-        '$_POST[metode_pembayaran]',
-        '$_POST[asuransi_id]',
-        '$_POST[status]'
-    )
-    ");
-
-    header("Location:index.php");
+session_start();
+if (!isset($_SESSION['user_id'])) {
+    header("Location: ../../login.php");
     exit;
 }
 
+require_once __DIR__ . '/../../config/koneksi.php';
+$error = '';
+
+// Ambil data kunjungan yang belum memiliki invoice tagihan
+$query_visit = "SELECT k.visit_id, p.nama AS nama_pasien, k.tgl_kunjungan 
+                FROM kunjungan k 
+                INNER JOIN pasien p ON k.patient_id = p.patient_id 
+                LEFT JOIN tagihan t ON k.visit_id = t.visit_id 
+                WHERE t.tagihan_id IS NULL ORDER BY k.visit_id DESC";
+$visits = mysqli_query($conn, $query_visit);
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $visit_id = mysqli_real_escape_string($conn, $_POST['visit_id']);
+    $tanggal_tagihan = mysqli_real_escape_string($conn, $_POST['tanggal_tagihan']);
+    $asuransi_id = mysqli_real_escape_string($conn, $_POST['asuransi_id']);
+    $status_pembayaran = mysqli_real_escape_string($conn, $_POST['status']);
+
+    $query_insert = "INSERT INTO tagihan (visit_id, tanggal_tagihan, total_tagihan, diskon, status, asuransi_id) 
+                     VALUES ('$visit_id', '$tanggal_tagihan', 0, 0, '$status_pembayaran', '$asuransi_id')";
+
+    if (mysqli_query($conn, $query_insert)) {
+        $new_id = mysqli_insert_id($conn);
+        header("Location: details.php?id=" . $new_id);
+        exit;
+    } else {
+        $error = "Gagal menerbitkan lembar invoice baru.";
+    }
+}
+
+include __DIR__ . '/../../includes/header.php';
+include __DIR__ . '/../../includes/sidebar.php';
 ?>
 
-<h1>Tambah Tagihan</h1>
+<div class="max-w-xl mx-auto bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+    <div class="p-5 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+        <h2 class="text-lg font-bold text-gray-800 flex items-center"><i class="bi bi-file-earmark-plus text-blue-500 mr-2"></i> Terbitkan Invoice Baru</h2>
+        <a href="index.php" class="text-xs text-gray-500 hover:text-gray-700"><i class="bi bi-arrow-left"></i> Kembali</a>
+    </div>
 
-<form method="POST">
+    <form action="" method="POST" class="p-6 space-y-4">
+        <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Pilih Rekam Sesi Kunjungan Pasien <span class="text-rose-500">*</span></label>
+            <select name="visit_id" required class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                <option value="">-- Pilih Sesi Pasien --</option>
+                <?php while ($v = mysqli_fetch_assoc($visits)): ?>
+                    <option value="<?= $v['visit_id'] ?>">#VISIT-<?= $v['visit_id'] ?> - <?= htmlspecialchars($v['nama_pasien']) ?> (<?= date('d M Y', strtotime($v['tgl_kunjungan'])) ?>)</option>
+                <?php endwhile; ?>
+            </select>
+        </div>
 
-<p>Kunjungan</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Tanggal Tagihan <span class="text-rose-500">*</span></label>
+                <input type="date" name="tanggal_tagihan" required value="<?= date('Y-m-day'); ?>" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none text-sm">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">No. Klaim Jaminan (BPJS)</label>
+                <input type="text" name="asuransi_id" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none text-sm" placeholder="Kosongkan jika tunai">
+            </div>
+        </div>
 
-<select name="visit_id">
+        <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Status Awal Invoice</label>
+            <select name="status" required class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none text-sm">
+                <option value="Belum Lunas">Belum Lunas</option>
+                <option value="Lunas">Lunas</option>
+            </select>
+        </div>
 
-<?php while($k=mysqli_fetch_assoc($kunjungan)) : ?>
+        <div class="pt-4 border-t border-gray-100 flex justify-end">
+            <button type="submit" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition shadow">Generate Invoice</button>
+        </div>
+    </form>
+</div>
 
-<option value="<?= $k['visit_id'] ?>">
-Visit <?= $k['visit_id'] ?> -
-<?= $k['nama'] ?> -
-<?= $k['dokter'] ?>
-</option>
-
-<?php endwhile; ?>
-
-</select>
-
-<p>Tanggal Tagihan</p>
-<input type="date" name="tanggal_tagihan" required>
-
-<p>Total Tagihan</p>
-<input type="number" name="total_tagihan">
-
-<p>Diskon</p>
-<input type="number" name="diskon">
-
-<p>Metode Pembayaran</p>
-<input type="text" name="metode_pembayaran">
-
-<p>Asuransi</p>
-<input type="text" name="asuransi_id">
-
-<p>Status</p>
-
-<select name="status">
-<option value="Belum Lunas">Belum Lunas</option>
-<option value="Lunas">Lunas</option>
-</select>
-
-<br><br>
-
-<button type="submit" name="simpan">
-Simpan
-</button>
-
-</form>
-
-<br>
-
-<a href="index.php">Kembali</a>
+<?php include __DIR__ . '/../../includes/footer.php'; ?>

@@ -1,158 +1,99 @@
 <?php
-
-require_once '../../config/koneksi.php';
-
-$id = $_GET['id'];
-
-$data = mysqli_fetch_assoc(
-    mysqli_query(
-        $conn,
-        "SELECT * FROM transaksi_stok WHERE transaksi_stok_id = $id"
-    )
-);
-
-$batch = mysqli_query($conn,"
-SELECT
-    b.batch_id,
-    o.nama_obat,
-    l.nama_lokasi,
-    b.lokasi_rak
-FROM batch_obat b
-JOIN obat o
-    ON b.obat_id = o.obat_id
-JOIN lokasi l
-    ON b.lokasi_id = l.lokasi_id
-ORDER BY b.batch_id ASC
-");
-
-if(isset($_POST['update'])){
-
-    $tanggal = str_replace('T', ' ', $_POST['tanggal']);
-
-    mysqli_query($conn,"
-    UPDATE transaksi_stok
-    SET
-        batch_id='$_POST[batch_id]',
-        tanggal='$tanggal',
-        jenis_transaksi='$_POST[jenis_transaksi]',
-        jumlah='$_POST[jumlah]',
-        referensi='$_POST[referensi]',
-        keterangan='$_POST[keterangan]'
-    WHERE transaksi_stok_id=$id
-    ");
-
-    header("Location:index.php");
+session_start();
+if (!isset($_SESSION['user_id'])) {
+    header("Location: ../../login.php");
     exit;
 }
 
-$tanggal_value = str_replace(' ', 'T', $data['tanggal']);
+require_once __DIR__ . '/../../config/koneksi.php';
+if (!isset($_GET['id'])) {
+    header("Location: index.php");
+    exit;
+}
 
+$transaksi_stok_id = mysqli_real_escape_string($conn, $_GET['id']);
+$query = "SELECT ts.*, o.nama_obat FROM transaksi_stok ts 
+          INNER JOIN batch_obat bo ON ts.batch_id = bo.batch_id 
+          INNER JOIN obat o ON bo.obat_id = o.obat_id 
+          WHERE ts.transaksi_stok_id = '$transaksi_stok_id'";
+$result = mysqli_query($conn, $query);
+
+if (mysqli_num_rows($result) === 0) {
+    header("Location: index.php");
+    exit;
+}
+
+$ts = mysqli_fetch_assoc($result);
+$error = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $jenis_transaksi = mysqli_real_escape_string($conn, $_POST['jenis_transaksi']);
+    $jumlah = mysqli_real_escape_string($conn, $_POST['jumlah']);
+    $referensi = mysqli_real_escape_string($conn, $_POST['referensi']);
+    $keterangan = mysqli_real_escape_string($conn, $_POST['keterangan']);
+
+    try {
+        $update = "UPDATE transaksi_stok SET 
+                        jenis_transaksi = '$jenis_transaksi', jumlah = '$jumlah', 
+                        referensi = '$referensi', keterangan = '$keterangan' 
+                   WHERE transaksi_stok_id = '$transaksi_stok_id'";
+
+        if (mysqli_query($conn, $update)) {
+            header("Location: index.php?status=success&msg=" . urlencode("Log koreksi mutasi stok berhasil disesuaikan!"));
+            exit;
+        }
+    } catch (mysqli_sql_exception $e) {
+        $error = "Aturan Bisnis Gagal: Kuantitas volume tidak boleh bernilai 0 atau bernilai minus!";
+    }
+}
+
+include __DIR__ . '/../../includes/header.php';
+include __DIR__ . '/../../includes/sidebar.php';
 ?>
 
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Edit Transaksi Stok</title>
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-        rel="stylesheet">
-</head>
-<body>
+<div class="max-w-xl mx-auto bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+    <div class="p-5 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+        <h2 class="text-lg font-bold text-gray-800"><i class="bi bi-pencil-square text-emerald-500 mr-2"></i> Koreksi Log Mutasi Stok</h2>
+        <a href="index.php" class="text-xs text-gray-500">Batal</a>
+    </div>
 
-<div class="container mt-4">
+    <?php if (!empty($error)) : ?>
+        <div class="m-4 bg-rose-50 border-l-4 border-rose-500 text-rose-800 p-4 rounded-xl text-sm flex items-center space-x-2"><i class="bi bi-exclamation-octagon-fill text-rose-500"></i><span><?= $error; ?></span></div>
+    <?php endif; ?>
 
-    <h1 class="mb-4">Edit Transaksi Stok</h1>
-
-    <form method="POST" class="col-md-8">
-
-        <div class="mb-3">
-            <label class="form-label">Batch Obat</label>
-            <select name="batch_id" class="form-select" required>
-
-                <?php while($b = mysqli_fetch_assoc($batch)) : ?>
-
-                <option
-                    value="<?= $b['batch_id'] ?>"
-                    <?= ($b['batch_id'] == $data['batch_id']) ? 'selected' : '' ?>
-                >
-                    Batch #<?= $b['batch_id'] ?> -
-                    <?= $b['nama_obat'] ?> -
-                    <?= $b['nama_lokasi'] ?> (<?= $b['lokasi_rak'] ?>)
-                </option>
-
-                <?php endwhile; ?>
-
-            </select>
+    <form action="" method="POST" class="p-6 space-y-4">
+        <div class="p-4 bg-slate-50 border rounded-xl text-sm text-gray-600">
+            Komoditas Obat Terikat: <strong class="text-gray-800"><?= htmlspecialchars($ts['nama_obat']) ?> (Lot #BCH-<?= $ts['batch_id'] ?>)</strong>
         </div>
 
-        <div class="mb-3">
-            <label class="form-label">Tanggal</label>
-            <input
-                type="datetime-local"
-                name="tanggal"
-                class="form-control"
-                value="<?= $tanggal_value ?>"
-                required
-            >
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Jenis Transaksi Alur Mutasi</label>
+                <select name="jenis_transaksi" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none">
+                    <option value="MASUK" <?= $ts['jenis_transaksi'] === 'MASUK' ? 'selected' : '' ?>>MASUK (Penambahan / Koreksi Gudang)</option>
+                    <option value="KELUAR" <?= $ts['jenis_transaksi'] === 'KELUAR' ? 'selected' : '' ?>>KELUAR (Penyusutan / Obat Rusak & Expired)</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Jumlah Volume Qty</label>
+                <input type="number" name="jumlah" value="<?= $ts['jumlah'] ?>" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none">
+            </div>
         </div>
 
-        <div class="mb-3">
-            <label class="form-label">Jenis Transaksi</label>
-            <select name="jenis_transaksi" class="form-select" required>
-                <option
-                    value="Masuk"
-                    <?= ($data['jenis_transaksi'] == 'Masuk') ? 'selected' : '' ?>
-                >
-                    Masuk
-                </option>
-                <option
-                    value="Keluar"
-                    <?= ($data['jenis_transaksi'] == 'Keluar') ? 'selected' : '' ?>
-                >
-                    Keluar
-                </option>
-                <option
-                    value="Penyesuaian"
-                    <?= ($data['jenis_transaksi'] == 'Penyesuaian') ? 'selected' : '' ?>
-                >
-                    Penyesuaian
-                </option>
-            </select>
+        <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Kode Nomor Referensi</label>
+            <input type="text" name="referensi" value="<?= htmlspecialchars($ts['referensi']) ?>" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none">
         </div>
 
-        <div class="mb-3">
-            <label class="form-label">Jumlah</label>
-            <input
-                type="number"
-                name="jumlah"
-                class="form-control"
-                min="1"
-                value="<?= $data['jumlah'] ?>"
-                required
-            >
+        <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Keterangan Alasan Logistik</label>
+            <textarea name="keterangan" rows="3" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none"><?= htmlspecialchars($ts['keterangan']) ?></textarea>
         </div>
 
-        <div class="mb-3">
-            <label class="form-label">Referensi</label>
-            <input
-                type="text"
-                name="referensi"
-                class="form-control"
-                value="<?= $data['referensi'] ?>"
-            >
+        <div class="pt-4 border-t border-gray-100 flex justify-end">
+            <button type="submit" class="w-full px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition shadow">Simpan Koreksi Transaksi</button>
         </div>
-
-        <div class="mb-3">
-            <label class="form-label">Keterangan</label>
-            <textarea name="keterangan" class="form-control" rows="3"><?= $data['keterangan'] ?></textarea>
-        </div>
-
-        <button type="submit" name="update" class="btn btn-primary">Update</button>
-        <a href="index.php" class="btn btn-secondary">Kembali</a>
-
     </form>
-
 </div>
 
-</body>
-</html>
+<?php include __DIR__ . '/../../includes/footer.php'; ?>

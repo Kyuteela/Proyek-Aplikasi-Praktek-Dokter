@@ -1,86 +1,72 @@
 <?php
-
-require_once '../../config/koneksi.php';
-
-$id = $_GET['id'];
-
-$data = mysqli_fetch_assoc(
-    mysqli_query(
-        $conn,
-        "SELECT * FROM dokter WHERE doctor_id = $id"
-    )
-);
-
-if(isset($_POST['update'])){
-
-    mysqli_query($conn,"
-        UPDATE dokter
-        SET
-            nama='$_POST[nama]',
-            sip_no='$_POST[sip_no]',
-            spesialisasi='$_POST[spesialisasi]',
-            jadwal_id='$_POST[jadwal_id]'
-        WHERE doctor_id=$id
-    ");
-
-    header("Location:index.php");
+session_start();
+if (!isset($_SESSION['user_id'])) {
+    header("Location: ../../login.php");
     exit;
 }
 
+require_once __DIR__ . '/../../config/koneksi.php';
+if (!isset($_GET['id'])) {
+    header("Location: index.php");
+    exit;
+}
+
+$doctor_id = mysqli_real_escape_string($conn, $_GET['id']);
+$result = mysqli_query($conn, "SELECT * FROM dokter WHERE doctor_id = '$doctor_id'");
+
+if (mysqli_num_rows($result) === 0) {
+    header("Location: index.php");
+    exit;
+}
+
+$doctor = mysqli_fetch_assoc($result);
+$error = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $nama = mysqli_real_escape_string($conn, $_POST['nama']);
+    $sip_no = mysqli_real_escape_string($conn, $_POST['sip_no']);
+    $spesialisasi = mysqli_real_escape_string($conn, $_POST['spesialisasi']);
+
+    $update_query = "UPDATE dokter SET nama = '$nama', sip_no = '$sip_no', spesialisasi = '$spesialisasi' WHERE doctor_id = '$doctor_id'";
+
+    if (mysqli_query($conn, $update_query)) {
+        header("Location: index.php?status=success&msg=" . urlencode("Profil data dokter berhasil diperbarui!"));
+        exit;
+    } else {
+        $error = "Gagal memperbarui data dokter.";
+    }
+}
+
+include __DIR__ . '/../../includes/header.php';
+include __DIR__ . '/../../includes/sidebar.php';
 ?>
 
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Edit Dokter</title>
-</head>
-<body>
+<div class="max-w-xl mx-auto bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+    <div class="p-5 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+        <h2 class="text-lg font-bold text-gray-800"><i class="bi bi-pencil-square text-emerald-500 mr-2"></i> Edit Data Dokter</h2>
+        <a href="index.php" class="text-xs text-gray-500">Batal</a>
+    </div>
 
-<h1>Edit Dokter</h1>
+    <form action="" method="POST" class="p-6 space-y-4">
+        <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Nama Lengkap Dokter <span class="text-rose-500">*</span></label>
+            <input type="text" name="nama" required value="<?= htmlspecialchars($doctor['nama']) ?>" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none text-sm">
+        </div>
 
-<form method="POST">
+        <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Nomor SIP</label>
+            <input type="text" name="sip_no" required value="<?= htmlspecialchars($doctor['sip_no']) ?>" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none text-sm">
+        </div>
 
-    <p>Nama Dokter</p>
-    <input
-        type="text"
-        name="nama"
-        value="<?= $data['nama'] ?>"
-        required
-    >
+        <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Spesialisasi Klinis</label>
+            <input type="text" name="spesialisasi" required value="<?= htmlspecialchars($doctor['spesialisasi']) ?>" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none text-sm">
+        </div>
 
-    <p>No SIP</p>
-    <input
-        type="text"
-        name="sip_no"
-        value="<?= $data['sip_no'] ?>"
-        required
-    >
+        <div class="pt-4 border-t border-gray-100 flex justify-end">
+            <button type="submit" class="w-full px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition shadow">Simpan Perubahan</button>
+        </div>
+    </form>
+</div>
 
-    <p>Spesialisasi</p>
-    <input
-        type="text"
-        name="spesialisasi"
-        value="<?= $data['spesialisasi'] ?>"
-    >
-
-    <p>Jadwal ID</p>
-    <input
-        type="number"
-        name="jadwal_id"
-        value="<?= $data['jadwal_id'] ?>"
-    >
-
-    <br><br>
-
-    <button type="submit" name="update">
-        Update
-    </button>
-
-</form>
-
-<br>
-
-<a href="index.php">Kembali</a>
-
-</body>
-</html>
+<?php include __DIR__ . '/../../includes/footer.php'; ?>

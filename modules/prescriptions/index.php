@@ -1,104 +1,99 @@
 <?php
+session_start();
+if (!isset($_SESSION['user_id'])) {
+    header("Location: ../../login.php");
+    exit;
+}
 
-require_once '../../config/koneksi.php';
+require_once __DIR__ . '/../../config/koneksi.php';
 
-$query = mysqli_query($conn,"
-SELECT
-    r.resep_id,
-    p.nama AS pasien,
-    d.nama AS dokter,
-    r.tanggal_resep,
-    r.catatan_dokter,
-    r.status_resep
-FROM resep r
+$status = isset($_GET['status']) ? $_GET['status'] : '';
+$msg = isset($_GET['msg']) ? $_GET['msg'] : '';
 
-JOIN rekam_medis rm
-    ON r.record_id = rm.record_id
+// Mengambil master header resep obat
+$query = "SELECT r.*, p.nama AS nama_pasien, d.nama AS nama_dokter 
+          FROM resep r 
+          INNER JOIN rekam_medis rm ON r.record_id = rm.record_id 
+          INNER JOIN kunjungan k ON rm.visit_id = k.visit_id 
+          INNER JOIN pasien p ON k.patient_id = p.patient_id 
+          INNER JOIN dokter d ON r.doctor_id = d.doctor_id 
+          ORDER BY r.resep_id DESC";
+$result = mysqli_query($conn, $query);
 
-JOIN kunjungan k
-    ON rm.visit_id = k.visit_id
-
-JOIN pasien p
-    ON k.patient_id = p.patient_id
-
-JOIN dokter d
-    ON r.doctor_id = d.doctor_id
-
-ORDER BY r.resep_id ASC
-");
-
+include __DIR__ . '/../../includes/header.php';
+include __DIR__ . '/../../includes/sidebar.php';
 ?>
 
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Data Resep</title>
-</head>
-<body>
+<div class="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+            <h2 class="text-xl font-bold text-gray-800 flex items-center">
+                <i class="bi bi-receipt-cutoff text-purple-500 mr-2"></i> Antrian Resep Obat Klinik
+            </h2>
+            <p class="text-xs text-gray-400 mt-1">Sistem pemantauan lembar instruksi resep, alokasi obat, dan validasi otoritas dokter.</p>
+        </div>
+        <a href="create.php" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-2.5 px-4 rounded-xl shadow flex items-center justify-center space-x-2 transition self-start sm:self-auto">
+            <i class="bi bi-file-earmark-medical"></i>
+            <span>Buat Resep Baru</span>
+        </a>
+    </div>
 
-<h1>Data Resep</h1>
+    <?php if ($status === 'success') : ?>
+        <div class="bg-emerald-50 border-l-4 border-emerald-500 text-emerald-800 p-4 rounded-xl mb-6 flex items-center space-x-3 text-sm">
+            <i class="bi bi-check-circle-fill text-xl text-emerald-500"></i>
+            <span><?= htmlspecialchars($msg); ?></span>
+        </div>
+    <?php elseif ($status === 'error') : ?>
+        <div class="bg-rose-50 border-l-4 border-rose-500 text-rose-800 p-4 rounded-xl mb-6 flex items-center space-x-3 text-sm">
+            <i class="bi bi-exclamation-octagon-fill text-xl text-rose-500"></i>
+            <span><?= htmlspecialchars($msg); ?></span>
+        </div>
+    <?php endif; ?>
 
-<a href="create.php">Tambah Resep</a>
+    <div class="overflow-x-auto rounded-xl border border-gray-100">
+        <table class="w-full text-left text-sm border-collapse">
+            <thead>
+                <tr class="bg-gray-50 border-b border-gray-200 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                    <th class="p-4">No. Lembar Resep</th>
+                    <th class="p-4">Nama Pasien</th>
+                    <th class="p-4">Dokter Pemberi Resep</th>
+                    <th class="p-4">Tanggal Rilis</th>
+                    <th class="p-4">Catatan Dokter</th>
+                    <th class="p-4 text-center">Status</th>
+                    <th class="p-4 text-center">Aksi</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 text-gray-600">
+                <?php if (mysqli_num_rows($result) > 0) : ?>
+                    <?php while ($row = mysqli_fetch_assoc($result)) : ?>
+                        <tr class="hover:bg-slate-50/80 transition">
+                            <td class="p-4 font-mono font-bold text-gray-700">#RSP-<?= str_pad($row['resep_id'], 4, '0', STR_PAD_LEFT); ?></td>
+                            <td class="p-4 font-bold text-gray-800"><?= htmlspecialchars($row['nama_pasien']); ?></td>
+                            <td class="p-4 text-xs font-medium"><?= htmlspecialchars($row['nama_dokter']); ?></td>
+                            <td class="p-4"><?= date('d M Y', strtotime($row['tanggal_resep'])); ?></td>
+                            <td class="p-4 text-xs max-w-xs truncate" title="<?= htmlspecialchars($row['catatan_dokter']); ?>"><?= htmlspecialchars($row['catatan_dokter'] ?: '-'); ?></td>
+                            <td class="p-4 text-center">
+                                <span class="px-2.5 py-1 rounded-full text-xs font-semibold border <?= $row['status_resep'] === 'Aktif' ? 'bg-purple-50 text-purple-700 border-purple-200 animate-pulse' : 'bg-slate-100 text-slate-600 border-slate-200'; ?>">
+                                    <?= htmlspecialchars($row['status_resep']); ?>
+                                </span>
+                            </td>
+                            <td class="p-4 text-center">
+                                <div class="flex items-center justify-center space-x-2">
+                                    <a href="details.php?id=<?= $row['resep_id']; ?>" class="text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition" title="Rincian Obat"><i class="bi bi-eye-fill"></i></a>
+                                    <a href="edit.php?id=<?= $row['resep_id']; ?>" class="text-amber-600 hover:bg-amber-50 p-2 rounded-lg transition" title="Koreksi Lembar"><i class="bi bi-pencil-square"></i></a>
+                                    <a href="delete.php?id=<?= $row['resep_id']; ?>" onclick="return confirm('Hapus lembar resep beserta seluruh isinya?')" class="text-rose-600 hover:bg-rose-50 p-2 rounded-lg transition" title="Hapus"><i class="bi bi-trash"></i></a>
+                                </div>
+                            </td>
+                        </tr>
+                    <?php endwhile; ?>
+                <?php else : ?>
+                    <tr>
+                        <td colspan="7" class="p-8 text-center text-gray-400 italic">Belum ada antrian data lembar resep obat.</td>
+                    </tr>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
 
-<br><br>
-
-<table border="1" cellpadding="5">
-
-<tr>
-    <th>ID</th>
-    <th>Pasien</th>
-    <th>Dokter</th>
-    <th>Tanggal</th>
-    <th>Status</th>
-    <th>Catatan Dokter</th>
-    <th>Aksi</th>
-</tr>
-
-<?php while($row = mysqli_fetch_assoc($query)) : ?>
-
-<tr>
-
-<td><?= $row['resep_id'] ?></td>
-<td><?= $row['pasien'] ?></td>
-<td><?= $row['dokter'] ?></td>
-<td><?= $row['tanggal_resep'] ?></td>
-<td><?= $row['status_resep'] ?></td>
-<td><?= $row['catatan_dokter'] ?></td>
-
-<td>
-
-<a href="edit.php?id=<?= $row['resep_id'] ?>">
-    Edit
-</a>
-
-|
-
-<a
-href="delete.php?id=<?= $row['resep_id'] ?>"
-onclick="return confirm('Yakin ingin menghapus resep ini?')"
->
-Hapus
-</a>
-
-|
-
-<a href="details.php?resep_id=<?= $row['resep_id'] ?>">
-    Detail
-</a>
-
-</td>
-
-</tr>
-
-<?php endwhile; ?>
-
-</table>
-
-<br>
-
-<a href="../../index.php">
-Kembali ke Dashboard
-</a>
-
-</body>
-</html>
+<?php include __DIR__ . '/../../includes/footer.php'; ?>

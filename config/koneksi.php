@@ -1,7 +1,7 @@
 <?php
 
 $conn = mysqli_connect(
-    "127.0.0.1",
+    "db",
     "root",
     "root123",
     "praktik_dokter"
@@ -10,5 +10,3 @@ $conn = mysqli_connect(
 if (!$conn) {
     die("Koneksi gagal: " . mysqli_connect_error());
 }
-
-?>
