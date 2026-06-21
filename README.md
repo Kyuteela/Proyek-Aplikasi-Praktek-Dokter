@@ -303,6 +303,3 @@ Proyek ini dibuat untuk keperluan akademis sebagai Proyek Akhir mata kuliah **Pe
 
 ---
 
-<p align="center">
-  <i>Dibuat dengan ❤️ untuk Proyek Akhir Pemrograman SQL — Genap 2025/2026</i>
-</p>
