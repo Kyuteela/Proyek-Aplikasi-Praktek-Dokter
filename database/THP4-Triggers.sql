@@ -198,32 +198,4 @@ END$$
 
 DELIMITER ;
 
--- Testing
-INSERT INTO pasien(
-    nik,
-    nama,
-    tgl_lahir,
-    jenis_kelamin
-)
-VALUES(
-    '123',
-    'Test Trigger',
-    '2000-01-01',
-    'L'
-);
-
-INSERT INTO pasien(
-    nik,
-    nama,
-    tgl_lahir,
-    jenis_kelamin
-)
-VALUES(
-    '1234567890123456',
-    'Pasien Audit',
-    '2000-01-01',
-    'L'
-);
-
-SELECT * FROM audit_log;
 
